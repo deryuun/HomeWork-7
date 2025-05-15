@@ -1,0 +1,61 @@
+stages:
+  - build
+  - test
+  - publish
+  - mutation-test
+
+variables:
+  GRADLE_OPTS: "-Dconsole.encoding=UTF-8 -Dfile.encoding=UTF-8"
+  JAR_NAME: "build/libs/TelegramShopManager-all.jar"
+  PACKAGE_NAME: "telegram-shop-manager"
+  PACKAGE_VERSION: "0.0.1"
+
+build:
+  stage: build
+  script:
+    - ./gradlew :shadowJar
+  artifacts:
+    paths:
+      - $JAR_NAME
+  only:
+    - main
+    - merge_requests
+  when: on_success
+
+test:
+  stage: test
+  dependencies:
+    - build
+  script:
+    - ./gradlew :test
+  artifacts:
+    paths:
+      - build/jacocoReport/test/html
+  only:
+    - main
+    - merge_requests
+  when: on_success
+
+publish:
+  stage: publish
+  dependencies:
+    - build
+    - test
+  script:
+    - |
+      curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --upload-file $JAR_NAME \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PACKAGE_NAME}/${PACKAGE_VERSION}/TelegramShopManager-all.jar"
+  only:
+    - main
+    - merge_requests
+  when: on_success
+
+mutation-test:
+  stage: mutation-test
+  script:
+    - ./gradlew :pitest
+  artifacts:
+    paths:
+      - build/reports/pitest
+  when: manual
